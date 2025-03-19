@@ -39,6 +39,8 @@ struct card_data
 {
     uint8_t card_type;
     uint8_t card_id[32];
+    bool data_copied_to_game;
+    bool extend_next_sleep;
 };
 
 /*

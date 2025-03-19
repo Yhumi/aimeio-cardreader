@@ -170,8 +170,18 @@ static unsigned int __stdcall aime_io_poll_thread_proc(void *ctx)
         printf("DEBUG: aime_io_poll_thread_proc(). \r\n");
     while (!READER_POLL_STOP_FLAG)
     {
-        if (card_data.card_type == 0) // Halting polling once a card is found, waiting for the game to read it's value.
+        if (aime_io_cfg.debug)
+            printf("DEBUG: aime_io_poll_thread_proc: poll.\nCard type: %d, Extended Sleep? %d, Sent Value to Game? %d\n", card_data.card_type, card_data.extend_next_sleep, card_data.data_copied_to_game);
+
+        if (card_data.extend_next_sleep) {
+            card_data.extend_next_sleep = false;
+            Sleep(5000);
+        }
+
+        if (card_data.card_type == 0 && !card_data.data_copied_to_game) // Halting polling once a card is found, waiting for the game to read it's value.
             scard_poll(&card_data);   // We're trying to find a card. If we do, the card's id and type are written to card_data.
+
+        Sleep(500);
     }
 
     return 0;
@@ -273,7 +283,7 @@ HRESULT aime_io_nfc_poll(uint8_t unit_no)
 HRESULT aime_io_nfc_get_aime_id(uint8_t unit_no, uint8_t *luid, size_t luid_size)
 {
     if (aime_io_cfg.debug)
-        printf("DEBUG: aime_io_nfc_get_aime_id(unit_no : %d). \r\n", unit_no);
+        printf("DEBUG: aime_io_nfc_get_aime_id(unit_no : %d), Mifare?: %d. \r\n", unit_no, card_data.card_type);
 
     assert(luid != NULL);
     assert(luid_size == 10);
@@ -287,6 +297,7 @@ HRESULT aime_io_nfc_get_aime_id(uint8_t unit_no, uint8_t *luid, size_t luid_size
         printf("aime_io_nfc_get_aime_id: Sending Aime card with luID %02X%02X %02X%02X %02X%02X %02X%02X %02X%02X\r\n\n", card_data.card_id[0], card_data.card_id[1], card_data.card_id[2], card_data.card_id[3], card_data.card_id[4], card_data.card_id[5], card_data.card_id[6], card_data.card_id[7], card_data.card_id[8], card_data.card_id[9]);
 
         memset(&card_data, 0, sizeof(card_data)); // Reset card_data structure
+        card_data.extend_next_sleep = true;
         return S_OK;
     }
 
@@ -296,7 +307,7 @@ HRESULT aime_io_nfc_get_aime_id(uint8_t unit_no, uint8_t *luid, size_t luid_size
 HRESULT aime_io_nfc_get_felica_id(uint8_t unit_no, uint64_t *IDm)
 {
     if (aime_io_cfg.debug)
-        printf("DEBUG: aime_io_nfc_get_felica_id(unit_no : %d). \r\n", unit_no);
+        printf("DEBUG: aime_io_nfc_get_felica_id(unit_no : %d), Felica?: %d. \r\n", unit_no, card_data.card_type);
 
     assert(IDm != NULL);
     if (unit_no != 0)
@@ -312,6 +323,7 @@ HRESULT aime_io_nfc_get_felica_id(uint8_t unit_no, uint64_t *IDm)
         printf("aime_io_nfc_get_felica_id: Sending FeliCa card with serial %02X%02X %02X%02X %02X%02X %02X%02X\r\n\n", card_data.card_id[0], card_data.card_id[1], card_data.card_id[2], card_data.card_id[3], card_data.card_id[4], card_data.card_id[5], card_data.card_id[6], card_data.card_id[7]);
 
         memset(&card_data, 0, sizeof(card_data)); // Reset card_data structure
+        card_data.extend_next_sleep = true;
         return S_OK;
     }
 

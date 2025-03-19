@@ -1,4 +1,8 @@
 .vscode
+.vs
+
 build64/*
+b64/*
 bin/*
+
 *.dll

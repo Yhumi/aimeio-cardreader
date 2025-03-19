@@ -136,17 +136,17 @@ void scard_poll(struct card_data *card_data)
 {
     lRet = SCardGetStatusChange(hContext, readCooldown, &reader_state, 1);
     if (lRet == SCARD_E_TIMEOUT)
-    {
         return;
-    }
+
     else if (lRet != SCARD_S_SUCCESS)
     {
         printf("scard_poll: Failed SCardGetStatusChange: 0x%08X\n", lRet);
         return;
     }
 
-    if (!(reader_state.dwEventState & SCARD_STATE_CHANGED))
+    if (!(reader_state.dwEventState & SCARD_STATE_CHANGED)) 
         return;
+       
 
     DWORD newState = reader_state.dwEventState ^ SCARD_STATE_CHANGED;
     bool wasCardPresent = (reader_state.dwCurrentState & SCARD_STATE_PRESENT) > 0;
@@ -167,8 +167,38 @@ void scard_poll(struct card_data *card_data)
     }
 
     reader_state.dwCurrentState = reader_state.dwEventState;
-
     return;
+}
+
+static void convert_felica_to_access_code(struct card_data* data) {
+    FILE* fptr;
+    fptr = fopen("aimeio_felicadb.txt", "r");
+
+    char fid[16];
+    for (int i = 0; i < 8; i++) {
+        sprintf(&fid[i * 2], "%02X", data->card_id[i]);
+    }
+    printf("Scanned felica %s\n", fid);
+
+    if (fptr) {
+        int found = 0;
+        char buf[100];
+        while (fgets(buf, 100, fptr)) {
+            if (strncmp(buf, fid, 16) == 0) {
+                char access_code[10];
+                char* buf_ac = &buf[17];
+                for (int i = 0; i < 10; i++)
+                {
+                    sscanf(&buf_ac[i * 2], "%02hhx", &access_code[i]);
+                }
+                printf("Found match, replacing with access code %s\n", buf_ac);
+                memcpy(data->card_id, access_code, 10);
+                data->card_type = Mifare;
+                break;
+            }
+        }
+    }
+    fclose(fptr);
 }
 
 void scard_update(struct card_data *card_data, SCARDCONTEXT _hContext, LPCTSTR _readerName)
@@ -254,6 +284,8 @@ void scard_update(struct card_data *card_data, SCARDCONTEXT _hContext, LPCTSTR _
 
         memcpy(card_data->card_id, pbRecv + 6, 10);
         card_data->card_type = Mifare;
+
+        card_data->data_copied_to_game = true;
         return;
     }
 
@@ -275,8 +307,9 @@ void scard_update(struct card_data *card_data, SCARDCONTEXT _hContext, LPCTSTR _
             return;
         }
 
-        if ((lRet = SCardDisconnect(hCard, SCARD_LEAVE_CARD)) != SCARD_S_SUCCESS)
+        if ((lRet = SCardDisconnect(hCard, SCARD_LEAVE_CARD)) != SCARD_S_SUCCESS) 
             printf("scard_update: Failed SCardDisconnect: 0x%08X\n", lRet);
+            
 
         if (cbRecv < 8)
         {
@@ -287,7 +320,15 @@ void scard_update(struct card_data *card_data, SCARDCONTEXT _hContext, LPCTSTR _
             printf("scard_update: taking first 8 bytes of %d received\n", cbRecv);
 
         memcpy(card_data->card_id, pbRecv, 8);
-        card_data->card_type = FeliCa;
+
+        printf("scard_update: pre-felica conversion card_data->card_type %d\n", card_data->card_type);
+        convert_felica_to_access_code(card_data); //Attempt to aime-ify the felica
+
+        if (card_data->card_type == 0)
+            card_data->card_type = FeliCa;
+
+        card_data->data_copied_to_game = true;
+
         return;
     }
 

@@ -1,8 +1,15 @@
 # AimeIO CardReader
 
 This allows you to a smartcard reader (specifically the acr122u) with segatools
+Fixed a few issues with the [AkaiiKitsune's aimeio-cardreader](https://github.com/AkaiiKitsune/aimeio-cardreader):
+- Works with Chunithm Luminous Plus
+- Fixed double scanning issue (sometimes the card would be polled twice and read by segatools twice, causing a ghost login when you finish a credit/cancel a login)
 
-**This has only been confirmed working with Chunithm Sun and Sun + so far. Luminous doesn't seem to work yet !**
+Also brought in some functionality from [raviddog's aimeio-pcsc](https://github.com/raviddog/aimeio-pcsc), to quote:
+
+```
+If the game doesn't know what to do with the FeLiCa IDm, you can convert it into an access code by creating a file called aimeio_felicadb.txt and adding a line containing the FeLiCa IDm code, and the access code to substitute it with. 0123456789ABCDEF 12345678901234567890
+```
 
 # Acknowledgments
 
@@ -62,11 +69,21 @@ If you hold 1 on your numpad and press the insert key, card1, "a5d04d668bc529e35
 
 This works for up to 10 cards.
 
+## Felica to Mifare
+
+Create the file `aimeio_felicadb.txt` in the bin/ folder, where `Segatools.ini` is, and populate it in the following format:
+`<felica_serial_code> <aic_access_code>`
+
+Eg:
+`12345678 1234567890`
+
+One per line.
+
 # Build
 
-To build this, you'll need two things :
+On linux:
 
-- [Meson 1.1.0](https://mesonbuild.com)
-- [Build Tools pour Visual Studio 2022](https://visualstudio.microsoft.com/fr/downloads/)
-
-Once you've edited your build64.bat file to point to your local installation of the VS2022 build tools, run build64.bat and the output will be located in `bin/aime.dll`.
+```
+meson setup --cross cross-mingw-64.txt b64
+ninja -C b64
+```
